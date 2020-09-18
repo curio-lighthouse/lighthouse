@@ -1,0 +1,3 @@
+include ':lighthouse'
+include ':app'
+rootProject.name = "lighthouse sample"
