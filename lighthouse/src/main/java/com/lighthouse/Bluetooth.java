@@ -10,7 +10,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.util.Log;
 import android.widget.Toast;
 
 import java.io.IOException;
@@ -34,30 +33,75 @@ public class Bluetooth {
      */
     private static final String PI_DEVICE_NAME = "raspberrypi";
 
+    /**
+     * Message displayed when LIDAR device is not found.
+     */
     private static final String LIDAR_NOT_FOUND = "Unable to detect the LIDAR nearby";
 
+    /**
+     * Messaged displayed when Bluetooth is turned off.
+     */
     private static final String BLUETOOTH_MUST_BE_ON = "Bluetooth must be turned on to use LIDAR";
 
+    /**
+     * Message displayed when Bluetooth is not supported by the phone.
+     */
     private static final String BLUETOOTH_NOT_SUPPORTED = "Bluetooth is not supported on this device";
 
+    /**
+     * Bluetooth socket used for communication with LIDAR.
+     */
     protected BluetoothSocket mBTSocket = null; // bi-directional client-to-client data path
+
+    /**
+     * Bluetooth adapter for the phone.
+     */
     private BluetoothAdapter mBTAdapter = null;
+
+    // TODO: see how this is used and if I can delete it.
     private Set<BluetoothDevice> mPairedDevices;
+
+    /**
+     * Boolean flag values for signaling results from discovery and searching for the LIDAR bluetooth
+     * signal.
+     */
     private volatile boolean lidarDeviceFoundNearby, discoveryFinished = false;
+
+    /**
+     * The activity from which the LIDAR device is being used.
+     */
     private final Activity activity;
 
+    /**
+     * The output stream which is used to send messages to the LIDAR device.
+     */
     private OutputStream outStream = null;
 
+    /**
+     * The input stream which the LIDAR device uses to send data to the application.
+     */
     private InputStream inStream = null;
 
+    /**
+     * Constructor.
+     * @param activity The activity from which the LIDAR object is created.
+     */
     public Bluetooth(Activity activity) {
         this.activity = activity;
     }
 
+    /**
+     * Returns the output stream.
+     * @return Output stream used for sending data to the LIDAR device.
+     */
     public OutputStream getOutStream() {
         return outStream;
     }
 
+    /**
+     * Returns the input stream.
+     * @return The input stream which the LIDAR device uses to send data to the application.
+     */
     public InputStream getInStream() {
         return inStream;
     }
@@ -89,6 +133,10 @@ public class Bluetooth {
         return bluetoothIsOn;
     }
 
+    /**
+     * Connects to the LIDAR device and returns a Bluetooth Socket.
+     * @return The bluetooth socket.
+     */
     public BluetoothSocket connectToLIDARAndGetSocket() {
         // Check if we have previously connected to the LIDAR.
         if (!connectToPiIfPreviouslyPaired()) {
@@ -104,8 +152,10 @@ public class Bluetooth {
         return mBTSocket;
     }
 
-    // This broadcast receiver handles callbacks from the startDiscovery method when the phone finds a
-    // bluetooth device.
+    /**
+     * This broadcast receiver handles callbacks from the startDiscovery method when the phone finds a
+     * bluetooth device.
+     */
     final BroadcastReceiver blReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -131,7 +181,6 @@ public class Bluetooth {
      * Discovers and connects to any Lidar device nearby.
      */
     protected boolean discoverNewLIDARAndConnect() {
-        boolean lidarConnected = false;
 
         // Check if the device is already discovering
         if (mBTAdapter.isDiscovering()) {
@@ -181,9 +230,12 @@ public class Bluetooth {
         return lidarDeviceFoundNearby;
     }
 
-    // This method checks to see if the pi has already been paired to the phone in the past.
-    // This returns true if the pi has been paired in the past, and returns false if no pi
-    // has ever been paired to the phone before.
+    /**
+     * This method checks to see if the pi has already been paired to the phone in the past.
+     * This returns true if the pi has been paired in the past, and returns false if no pi
+     * has ever been paired to the phone before.
+     * @return
+     */
     protected boolean connectToPiIfPreviouslyPaired() {
         boolean result = false;
 
