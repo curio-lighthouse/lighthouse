@@ -59,6 +59,11 @@ public class LidarDisplay extends View {
         init(context, attrs);
     }
 
+    /**
+     * Updates the graph data from a DataPoint array.  This merely updates the data which the graph
+     * is based upon.  It does not update the visual graph.
+     * @param dataPointArray The array of DataPoints to update the graph data with.
+     */
     public void updateGraphWithDataPoints(DataPoint[] dataPointArray) {
         if (dataPointArray != null) {
             for (DataPoint dataPoint : dataPointArray) {
@@ -67,30 +72,55 @@ public class LidarDisplay extends View {
                     mGraphPointArray[graphPoint.getAngle()] = graphPoint;
                 }
             }
-            createSectionsPath();
+            createPointArray();
         }
     }
 
+    /**
+     * Returns the width of the chart in the view.
+     * @return Width of the chart.
+     */
     public int getChartWidth() {
         return chartWidth;
     }
 
+    /**
+     * Returns the height of the chart in the view.
+     * @return Height of the chart.
+     */
     public int getChartHeight() {
         return chartHeight;
     }
 
+    /**
+     * Returns true if the view is configured to draw lines from the center to the distance point.
+     * @return
+     */
     public boolean isDrawLines() {
         return drawLines;
     }
 
+    /**
+     * Pass true in order to configure the view to show lines from the center of the graph to the
+     * point representing the distance value.
+     * @param drawLines boolean value for turning on and off lines.
+     */
     public void setDrawLines(boolean drawLines) {
         this.drawLines = drawLines;
     }
 
+    /**
+     * Get the color value used for drawing on the canvas.
+     * @return The hex color value.
+     */
     public String getHexColorValue() {
         return hexColorValue;
     }
 
+    /**
+     * Set the color value used for drawing on the canvas.
+     * @param hexColorValue The hex color value.
+     */
     public void setHexColorValue(String hexColorValue) {
         this.hexColorValue = hexColorValue;
     }
@@ -102,7 +132,7 @@ public class LidarDisplay extends View {
         chartHeight = h;
         chartWidth = w;
 
-        createSectionsPath();
+        createPointArray();
     }
 
     @Override
@@ -128,9 +158,9 @@ public class LidarDisplay extends View {
     }
 
     /**
-     * Create sections path
+     * Creates the point array used to draw on the canvas.
      */
-    private void createSectionsPath() {
+    private void createPointArray() {
 
         if (drawLines) {
             mPointArray = new float[1440];

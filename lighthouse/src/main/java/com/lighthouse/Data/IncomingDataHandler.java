@@ -1,8 +1,20 @@
 package com.lighthouse.Data;
 
 
+/**
+ * Used for handing the incoming data from the LIDAR device bluetooth input stream.
+ */
 public class IncomingDataHandler {
 
+    /**
+     * Static method for processing the raw byte stream from the LIDAR device.
+     * @param lidarData Raw byte array from the LIDAR device bluetooth input stream.
+     * @param minimumDistanceFilter Minimum distance filter value.
+     * @param maximumDistanceFilter Maximum distance filter value.
+     * @param intensityThreshold Intensity threshold value.
+     * @param lidarViewScaleRate LidarDisplay view scale rate.
+     * @return DataPoint array containing the parsed LIDAR data.
+     */
     public static DataPoint[] getDataPointArrayFromPiData(byte[] lidarData,
                                                           int minimumDistanceFilter,
                                                           int maximumDistanceFilter,
@@ -42,10 +54,23 @@ public class IncomingDataHandler {
         return dataPointArray;
     }
 
+    /**
+     * Returns the base angle for the reading.
+     * @param baseAngleByte Byte representing the base angle for the reading.
+     * @return The base angle after bit shifting.
+     */
     private static int getBaseAngle(int baseAngleByte) {
         return ((baseAngleByte - 160) * 6) & 0xff;
     }
 
+    /**
+     * Returns the six distances captured in the byte array.
+     * @param byteArray Byte array containing a single reading.
+     * @param minimumDistanceFilter Minimum distance filter value.
+     * @param maximumDistanceFilter Maximum distance filter value.
+     * @param lidarViewScaleRate The LidarDisplay view scale value.
+     * @return Float array containing all six angles.
+     */
     private static float[] getSixDistancesFromByteArray(byte[] byteArray,
                                                         int minimumDistanceFilter,
                                                         int maximumDistanceFilter,
@@ -64,6 +89,14 @@ public class IncomingDataHandler {
         return distanceArray;
     }
 
+    /**
+     * Applies the maximum and minimum distance filters to the distance values.  If a distance value
+     * is beyond either filter, it is set to a distance of 0.
+     * @param distance The distance being filtered.
+     * @param minimumDistanceFilter Minimum distance filter value.
+     * @param maximumDistanceFilter Maximum distance filter value.
+     * @return Filtered distance value.
+     */
     private static int applyDistanceFiltersToDistanceValue(int distance, int minimumDistanceFilter, int maximumDistanceFilter) {
         if (distance > minimumDistanceFilter && distance < maximumDistanceFilter) {
             return distance;
@@ -72,10 +105,22 @@ public class IncomingDataHandler {
         }
     }
 
+    /**
+     * Applies the scale rate to the distance value.
+     * @param distance Distance value to be scaled.
+     * @param lidarViewScaleRate Scale rate.
+     * @return Scaled distance value.
+     */
     private static float applyScaleRateToDistanceValue(int distance, float lidarViewScaleRate) {
         return distance / lidarViewScaleRate;
     }
 
+    /**
+     * Returns true if the intensity value for a reading is beyond the threshold value.
+     * @param intensity Intensity value for a reading.
+     * @param intensityThreshold Intensity value threshold.
+     * @return
+     */
     private static boolean isIntensityValueAboveThreshold(float intensity, int intensityThreshold) {
         return !(intensity < intensityThreshold);
     }
