@@ -6,17 +6,26 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.View;
 
 import com.lighthouse.Data.DataPoint;
 import com.lighthouse.Data.GraphPoint;
 
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class LidarDisplay extends View {
+    // TODO: Add JavaDoc's for these variables.
 
     private final Paint shapePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final GraphPoint[] mGraphPointArray = new GraphPoint[360];
+
+    private final DataPoint[] fullDataPointArray = new DataPoint[360];
+
+    private final Paint[] mPaintArray = new Paint[360];
 
     private float[] mPointArray;
 
@@ -24,7 +33,15 @@ public class LidarDisplay extends View {
 
     private boolean drawLines = false;
 
+    private boolean alphaByDistance = false;
+
     private int chartWidth, chartHeight;
+
+    /**
+     * Configurable value used to set the scale to which the LIDAR values
+     * will be modified with when displaying on the screen.
+     */
+    private float lidarViewScaleRate = 8f;
 
     /**
      * Constructor
@@ -60,6 +77,32 @@ public class LidarDisplay extends View {
     }
 
     /**
+     * Init
+     *
+     * @param context
+     */
+    private void init(Context context, AttributeSet attrs) {
+        shapePaint.setStyle(Paint.Style.FILL_AND_STROKE);
+        shapePaint.setColor(Color.parseColor(hexColorValue));
+        // TODO: Allow the developer to configure this value
+        shapePaint.setStrokeWidth(3);
+        initializeFullDataPointArray();
+        initializePaintArray();
+    }
+
+    private void initializeFullDataPointArray() {
+        for (int i=0; i < fullDataPointArray.length; i++) {
+            fullDataPointArray[i] = new DataPoint(0, 0, 0, 0);
+        }
+    }
+
+    private void initializePaintArray() {
+        for (int i=0; i < mPaintArray.length; i++) {
+            mPaintArray[i] = new Paint();
+        }
+    }
+
+    /**
      * Updates the graph data from a DataPoint array.  This merely updates the data which the graph
      * is based upon.  It does not update the visual graph.
      * @param dataPointArray The array of DataPoints to update the graph data with.
@@ -68,12 +111,40 @@ public class LidarDisplay extends View {
         if (dataPointArray != null) {
             for (DataPoint dataPoint : dataPointArray) {
                 if (dataPoint != null) {
-                    GraphPoint graphPoint = new GraphPoint(dataPoint);
+                    fullDataPointArray[dataPoint.getAngle()] = dataPoint;
+                    GraphPoint graphPoint = new GraphPoint(dataPoint, lidarViewScaleRate);
+                    if (alphaByDistance) {
+                        graphPoint.setPaintAlpha(getAlphaValueFromDistance((int) dataPoint.getDistance()));
+                    }
                     mGraphPointArray[graphPoint.getAngle()] = graphPoint;
                 }
             }
             createPointArray();
         }
+    }
+
+    public boolean isAlphaByDistance() {
+        return alphaByDistance;
+    }
+
+    public void setAlphaByDistance(boolean alphaByDistance) {
+        this.alphaByDistance = alphaByDistance;
+    }
+
+    /**
+     * Returns The current scale rate used for displaying the LIDAR data in the LidarDisplay.
+     * @return Current scale rate value.
+     */
+    public float getLidarViewScaleRate() {
+        return lidarViewScaleRate;
+    }
+
+    /**
+     * Set the scale rate used for displaying the LIDAR data in the LidarDisplay.
+     * @param lidarViewScaleRate The scale rate to be used when displaying LIDAR data in the LidarDisplay
+     */
+    public void setLidarViewScaleRate(float lidarViewScaleRate) {
+        this.lidarViewScaleRate = lidarViewScaleRate;
     }
 
     /**
@@ -138,23 +209,11 @@ public class LidarDisplay extends View {
     @Override
     public synchronized void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-
         if (drawLines) {
             canvas.drawLines(mPointArray, shapePaint);
         } else {
             canvas.drawPoints(mPointArray, shapePaint);
         }
-    }
-
-    /**
-     * Init
-     *
-     * @param context
-     */
-    private void init(Context context, AttributeSet attrs) {
-        shapePaint.setStyle(Paint.Style.FILL_AND_STROKE);
-        shapePaint.setColor(Color.parseColor(hexColorValue));
-        shapePaint.setStrokeWidth(5);
     }
 
     /**
@@ -169,17 +228,22 @@ public class LidarDisplay extends View {
         }
 
         float currentSectionX, currentSectionY;
-        GraphPoint[] graphPointsArray = mGraphPointArray;
         int pointArrayCursor = 0;
-        for (GraphPoint graphPoint : graphPointsArray) {
+        int paintArrayCursor = 0;
+        for (GraphPoint graphPoint : mGraphPointArray) {
             // Check to make sure that we have logged a value for that angle.
             if (graphPoint != null) {
                 float xValue = graphPoint.getxCoordinate();
-                currentSectionX = (chartWidth / 2) + xValue;
+                currentSectionX = (chartWidth / 2f) + xValue;
 
                 float yValue = graphPoint.getyCoordinate();
-                currentSectionY = (chartHeight / 2) - yValue;
+                Log.i("lighthouse", "Angle " + graphPoint.getAngle() + " yValue: " + yValue);
+                currentSectionY = (chartHeight / 2f) - yValue;
 
+                if (alphaByDistance) {
+                    mPaintArray[paintArrayCursor] = graphPoint.getCustomPaint();
+                    paintArrayCursor++;
+                }
 
             } else {
                 currentSectionX = (chartWidth / 2);
@@ -199,6 +263,14 @@ public class LidarDisplay extends View {
             }
         }
 
+    }
+
+    private int getAlphaValueFromDistance(int distance) {
+        final int opaque = 255;
+        final int minimum_distance = 120;
+        final int normalized_maximum_distance = 3380; // 3500 - 120 (max distance - minimum distance).
+
+        return (opaque - (((distance - minimum_distance) / normalized_maximum_distance) * opaque));
     }
 }
 

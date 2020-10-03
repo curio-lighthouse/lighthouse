@@ -1,6 +1,7 @@
 package com.lighthouse;
 
 import android.app.Activity;
+import android.os.Build;
 import android.util.Log;
 
 
@@ -14,13 +15,15 @@ import java.net.URI;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import androidx.annotation.RequiresApi;
+
 public class LIDAR extends Bluetooth {
 
     /**
      * This is the number of bytes that are contained in each message sent from the LIDAR
      * device to the android phone.  The LIDAR device captures a minimum of 6 angles in 42 bytes.
      */
-    private static int bluetoothBytePacketSize = 1260;
+    private static int bluetoothBytePacketSize = 2520;
 
     /**
      * This is the minimum distance that the LIDAR device can produce a reading for.
@@ -57,23 +60,19 @@ public class LIDAR extends Bluetooth {
      */
     int intensityThreshold = 0;
 
+    int rpmThreshold = 0;
+
     /**
      * Configurable value used to set the interval in which the bluetooth
      * inputstream is checked for data.
      */
-    private int pollingInterval = 50;
+    private int pollingInterval = 0;
 
     /**
      * Configurable value used to set the interval at which the LidarDisplay view is
      * invalidated.
      */
     private int lidarViewRefreshRate = 16;
-
-    /**
-     * Configurable value used to set the scale to which the LIDAR values
-     * will be modified with when displaying on the screen.
-     */
-    private float lidarViewScaleRate = 8f;
 
     /**
      * Boolean value to set output of LIDAR data to the log.
@@ -107,6 +106,8 @@ public class LIDAR extends Bluetooth {
      */
     private static boolean changed = false;
 
+    private long lastReadTime = 0;
+
 
     /**
      * Constructor without LidarDisplay view
@@ -125,6 +126,14 @@ public class LIDAR extends Bluetooth {
     public LIDAR(Activity activity, LidarDisplay lidarDisplay) {
         super(activity);
         this.lidarDisplay = lidarDisplay;
+    }
+
+    public int getRpmThreshold() {
+        return rpmThreshold;
+    }
+
+    public void setRpmThreshold(int rpmThreshold) {
+        this.rpmThreshold = rpmThreshold;
     }
 
     /**
@@ -168,22 +177,6 @@ public class LIDAR extends Bluetooth {
      */
     public void setOutputLIDARDataToLog(boolean outputLIDARDataToLog) {
         this.outputLIDARDataToLog = outputLIDARDataToLog;
-    }
-
-    /**
-     * Returns The current scale rate used for displaying the LIDAR data in the LidarDisplay.
-     * @return Current scale rate value.
-     */
-    public float getLidarViewScaleRate() {
-        return lidarViewScaleRate;
-    }
-
-    /**
-     * Set the scale rate used for displaying the LIDAR data in the LidarDisplay.
-     * @param lidarViewScaleRate The scale rate to be used when displaying LIDAR data in the LidarDisplay
-     */
-    public void setLidarViewScaleRate(float lidarViewScaleRate) {
-        this.lidarViewScaleRate = lidarViewScaleRate;
     }
 
     /**
@@ -380,28 +373,15 @@ public class LIDAR extends Bluetooth {
     }
 
     /**
-     * Outputs LIDAR data to verbose logs.
-     * @param dataPointArray Array of DataPoint objects.
-     */
-    private void outputDataPointArrayToLogs(DataPoint[] dataPointArray) {
-        for (DataPoint dataPoint : dataPointArray) {
-            Log.v("LIDAR", "Angle: " + dataPoint.getAngle() +
-                    " Distance: " + dataPoint.getDistance() +
-                    " Intensity: " + dataPoint.getIntensity() +
-                    " RPM: " + dataPoint.getRPM());
-        }
-    }
-
-    /**
      * Task used to continously read from the bluetooth inputstream.
      */
     private class Task implements Runnable {
 
+        @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
         public void run() {
             int bytes;
             byte[] buffer;
-            long lastReadTime = 0;
             DataPoint[] dataPointArray;
 
             // Continually loop and check for messages from the pi.
@@ -413,22 +393,23 @@ public class LIDAR extends Bluetooth {
                         lastReadTime = System.currentTimeMillis();
 
                         // If we received a message from the pi, we will continue with processing it.
-                        if (bytes > 0) {
+                        if (bytes >= bluetoothBytePacketSize) {
+                            Log.i("lighthouse", "read: " + bytes + " of data.");
                             buffer = new byte[bytes];
                             getInStream().read(buffer);
-                            System.arraycopy(buffer, 0, myByteArray, 0, Math.min(bytes, bluetoothBytePacketSize));
+                            System.arraycopy(buffer, 0, myByteArray, 0, bluetoothBytePacketSize);
                             dataPointArray = IncomingDataHandler.getDataPointArrayFromPiData(myByteArray,
                                     minimumDistanceFilter,
                                     maximumDistanceFilter,
                                     intensityThreshold,
-                                    lidarViewScaleRate);
+                                    rpmThreshold);
                             changed = true;
 
                             if (lidarDisplay != null) {
                                 lidarDisplay.updateGraphWithDataPoints(dataPointArray);
                             }
                             if (outputLIDARDataToLog) {
-                                outputDataPointArrayToLogs(dataPointArray);
+                                new Thread(new WriteLidarDataToLog(dataPointArray)).start();
                             }
                             if (writeLidarDataToFile) {
                                 new Thread(new WriteLidarDataToFile(dataPointArray)).start();
@@ -461,21 +442,44 @@ public class LIDAR extends Bluetooth {
                 file.createNewFile();
                 FileWriter writer = new FileWriter(file);
                 for (DataPoint dataPoint : dataPointArray) {
-                    writer.write(
-                            dataPoint.getAngle() +
-                                    "," +
-                                    dataPoint.getDistance() +
-                                    "," +
-                                    dataPoint.getIntensity() +
-                                    "," +
-                                    dataPoint.getRPM() +
-                                    "\n"
-                    );
+                    if (dataPoint != null) {
+                        writer.write(
+                                dataPoint.getAngle() +
+                                        "," +
+                                        dataPoint.getDistance() +
+                                        "," +
+                                        dataPoint.getIntensity() +
+                                        "," +
+                                        dataPoint.getRPM() +
+                                        "\n"
+                        );
+                    }
                 }
                 writer.flush();
                 writer.close();
             } catch (IOException e) {
                 e.printStackTrace();
+            }
+        }
+    }
+
+    private class WriteLidarDataToLog implements Runnable {
+
+        final DataPoint[] dataPointArray;
+
+        public WriteLidarDataToLog(DataPoint[] dataPointArray) {
+            this.dataPointArray = dataPointArray;
+        }
+
+        @Override
+        public void run() {
+            for (DataPoint dataPoint : dataPointArray) {
+                if (dataPoint != null) {
+                    Log.i("info", "Angle: " + dataPoint.getAngle() +
+                            " Distance: " + dataPoint.getDistance() +
+                            " Intensity: " + dataPoint.getIntensity() +
+                            " RPM: " + dataPoint.getRPM());
+                }
             }
         }
     }
