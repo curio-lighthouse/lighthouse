@@ -49,6 +49,11 @@ public class Bluetooth {
     private static final String BLUETOOTH_NOT_SUPPORTED = "Bluetooth is not supported on this device";
 
     /**
+     * Message displayed when Bluetooth discovery fails to start.
+     */
+    private static final String BLUETOOTH_DISCOVERY_FAILED = "Bluetooth discovery failed to start";
+
+    /**
      * Bluetooth socket used for communication with LIDAR.
      */
     protected BluetoothSocket mBTSocket = null; // bi-directional client-to-client data path
@@ -216,13 +221,13 @@ public class Bluetooth {
             BluetoothAdapter mBtAdapter = BluetoothAdapter.getDefaultAdapter();
             boolean started = mBtAdapter.startDiscovery();
             if (!started) {
-                mBtAdapter.enable();
+                Toast.makeText(activity.getBaseContext(), BLUETOOTH_DISCOVERY_FAILED, Toast.LENGTH_SHORT).show();
             }
 
             // Inside of the broadcast receiver for startDiscovery, we will set the piDeviceFoundNearby
             // flag to true if we find a pi device nearby which we then try to connect to.  Otherwise,
             // we continue to loop in this while loop.
-            while (!lidarDeviceFoundNearby && !discoveryFinished);
+            while (!lidarDeviceFoundNearby && !discoveryFinished && started);
 
         } else {
             Toast.makeText(activity.getBaseContext(), LIDAR_NOT_FOUND, Toast.LENGTH_SHORT).show();
